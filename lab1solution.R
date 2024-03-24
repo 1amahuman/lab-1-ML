@@ -70,6 +70,3 @@ final_fit %>%
   select(.pred_class, pass) %>%
   mutate(correct = .pred_class == pass) %>%
   tabyl(correct)
-
-# Wrap up and knit the document
-
