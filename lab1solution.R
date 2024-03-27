@@ -1,72 +1,52 @@
-# Load tidyverse package
+# loading libraries
 library(tidyverse)
-
-# Load tidymodels package
 library(tidymodels)
-
-# Load janitor package
 library(janitor)
 
-# Read in the data
-students <- read_csv("studentInfo.csv")
+#loading the data
+stdnts <- read_csv("studentInfo.csv")
+stdnts <- stdnts %>%
+  mutate(pss = ifelse(final_result == "Pass", 1, 0)) %>%
+  mutate(pss = as.factor(pss))
 
-# Mutate variables
-students <- students %>%
-  mutate(pass = ifelse(final_result == "Pass", 1, 0)) %>%
-  mutate(pass = as.factor(pass))
+stdnts <- stdnts %>%
+  mutate(dsb = as.factor(disability))
 
-students <- students %>%
-  mutate(disability = as.factor(disability))
+#checking the data
+stdnts
 
-# Examine the data
-students
+stdnts <- stdnts %>%
+  mutate(imb = factor(imd_band, levels = c("0-10%", "10-20%", "20-30%", "30-40%", "40-50%", "50-60%", "60-70%", "70-80%", "80-90%", "90-100%"))) %>%
+  mutate(imb = as.integer(imb))
 
-# Feature engineering
-students <- students %>%
-  mutate(imd_band = factor(imd_band, levels = c("0-10%", "10-20%", "20-30%", "30-40%", "40-50%", "50-60%", "60-70%", "70-80%", "80-90%", "90-100%"))) %>%
-  mutate(imd_band = as.integer(imd_band))
-
-# Split data
 set.seed(20230712)
-train_test_split <- initial_split(students, prop = 0.80)
-data_train <- training(train_test_split)
-data_test <- testing(train_test_split)
+train_test_splt <- initial_split(stdnts, prop = 0.80)
+data_train <- training(train_test_splt)
+data_test <- testing(train_test_splt)
 
-# Create a recipe
-my_rec <- recipe(pass ~ disability + imd_band, data = data_train)
-
-# Specify the model
-my_mod <- 
+# creating a recipe and model
+my_rcp <- recipe(pss ~ dsb + imb, data = data_train)
+my_mdl <- 
   logistic_reg() %>% 
   set_engine("glm") %>% 
   set_mode("classification")
 
-# Add model and recipe to workflow
+#adding model and recipe to workflow
 my_wf <- 
   workflow() %>% 
-  add_model(my_mod) %>% 
-  add_recipe(my_rec)
+  add_model(my_mdl) %>% 
+  add_recipe(my_rcp)
 
-# Fit model
-fitted_model <- fit(my_wf, data = data_train)
+fttd_model <- fit(my_wf, data = data_train)
+tst_splt <- rsample::initial_split(data_test, prop = 0.8)
 
-# Create a resampling object for the testing data
-test_split <- rsample::initial_split(data_test, prop = 0.8)
-
-# Fit the model using the testing data
-final_fit <- last_fit(my_wf, split = test_split)
-
-# View the final fitted model
-final_fit
-
-
-# Collect predictions
-final_fit %>%
+# creating final fit 
+final_ft <- last_fit(my_wf, split = tst_splt)
+final_ft
+final_ft %>%
   collect_predictions()
-
-# Interpret accuracy
-final_fit %>%
+final_ft %>%
   collect_predictions() %>%
-  select(.pred_class, pass) %>%
-  mutate(correct = .pred_class == pass) %>%
+  select(.pred_class, pss) %>%
+  mutate(correct = .pred_class == pss) %>%
   tabyl(correct)
